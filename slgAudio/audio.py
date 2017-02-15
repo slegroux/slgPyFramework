@@ -1,5 +1,5 @@
 import pyaudio
-from settings import *
+import settings
 # from IPython import embed
 import numpy as np
 
@@ -12,11 +12,11 @@ class Audio(object):
 		self.stream = None
 		self.input_device = 0
 		self.output_device = 1
-		self.number_of_channels = CHANNELS
-		self.sampling_rate = SAMPLING_RATE
-		self.format = FORMAT
+		self.number_of_channels = settings.CHANNELS
+		self.sampling_rate = settings.SAMPLING_RATE
+		self.format = settings.FORMAT
 		# self.external_cb = self.default_callback
-		self.chunk = CHUNK
+		self.chunk = settings.CHUNK
 
 	def register_callback(self, external_callback):
 		self.external_cb = external_callback
@@ -66,11 +66,12 @@ class Audio(object):
 	def default_callback(in_data, frame_count):
 		return (in_data)
 
-	def audio_callback(self, in_data, frame_count, time_info, status, user_data=None):
+	def audio_callback(self, in_data, frame_count, time_info, status): #, user_data=None):
 		if status:
 			print("Playback Error: %i" % status)
 
 		in_data = np.fromstring(in_data, dtype=np.float32)
+		in_data = np.reshape(in_data,(frame_count, self.number_of_channels))
 		# data = np.array(frame_count * [0.0])
 		# def external_cb(in_data, frame_count):
 		#     for i in range(frame_count):
@@ -78,5 +79,7 @@ class Audio(object):
 		#     return data
 
 		data = np.array(self.external_cb(in_data, frame_count))
+		# interleaved means L0, R0, L1, R1...
+		data = data.flatten()
 		data = data.astype(np.float32).tostring()
 		return (data, pyaudio.paContinue)
