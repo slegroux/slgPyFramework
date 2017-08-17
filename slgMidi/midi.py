@@ -4,6 +4,7 @@ import mido
 from mido import Message
 import time
 from threading import Thread
+from midi_consts import *
 
 note_state = {}
 
@@ -12,14 +13,38 @@ def bpm(self, b):
 
 
 class Note(object):
-	def __init__(self, p, dur, dyn=85, pan=0.5):
-		self.p = p
-		self.dur = dur
-		self.dyn = dyn
-		self.pan = pan
+	def __init__(self, p, dur, dyn=85):
+		if p == REST:
+			self.p = 0
+			self.dur = dur
+			self.dyn = 0
+		else:
+			self.p = p
+			self.dur = dur
+			self.dyn = dyn
 
 	def print_note(self):
-		print (self.p, self.dur, self.dyn, self.pan)
+		print (self.p, self.dur, self.dyn)
+
+
+class Rest(Note):
+	# here rest is defined as a 0 velocity C3
+	def __init__(self, dur):
+		Note.__init__(self, 60, dur, 0, 0)
+
+
+class NoteList(object):
+	def __init__(self, notes, dur, dyn=85):
+		self.notes=  notes
+		self.dur = dur
+
+		if type(dyn) is int:
+			self.dyn = [dyn] * len(notes)
+		else:
+			self.dyn = dyn
+
+	def get(self):
+		return [Note(n[0], n[1], n[2]) for n in zip(self.notes, self.dur, self.dyn)]
 
 
 class Midi(object):
@@ -38,16 +63,16 @@ class Midi(object):
 			port_name = mido.get_input_names()[port]
 			self.input = mido.open_input(port_name)
 			print "Input Port:", port_name
-		except IOError:
-			print "IOerror"
+		except Exception as e:
+			print "Exception: ", str(e)
 
 	def set_output_port(self, port):
 		try:
 			port_name = mido.get_output_names()[port]
 			self.output = mido.open_output(port_name, autoreset=True)
 			print "Output Port:", port_name
-		except IOError:
-			print "IOerror"
+		except Exception as e:
+			print "Exception: ", str(e)
 
 	def choose_devices(self):
 		i = mido.get_input_names()[int(raw_input("Enter input index: "))]
@@ -76,8 +101,12 @@ class Midi(object):
 
 	def play_(self, notes, channel=0):
 		# exepect list of notes. input [note] if just 1 note
+		if not isinstance(notes, list):
+			notes = [notes]
+
 		for note in notes:
 			on = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
+			# pan_message = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
 			self.output.send(on)
 			time.sleep(note.dur)
 			off = Message('note_off', note=note.p, channel=channel)
@@ -87,8 +116,9 @@ class Midi(object):
 		# TODO: give arguments to threaded function
 		new_thread = Thread(target=self.play_, args=[notes, channel])
 		new_thread.start()
+		new_thread.join()
 
-	def play_chord_(self, pitches, velocity, dur, channel=0):
+	def play_chord_(self, pitches, dur, velocity, channel=0):
 		for note in pitches:
 			on = Message('note_on', note=note, velocity=velocity, channel=channel)
 			self.output.send(on)
@@ -100,3 +130,4 @@ class Midi(object):
 	def play_chord(self, pitches, velocity, dur, channel=0):
 		new_thread = Thread(target=self.play_chord_, args=[pitches, velocity, dur, channel])
 		new_thread.start()
+		new_thread.join()
