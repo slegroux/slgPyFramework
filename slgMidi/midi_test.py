@@ -42,6 +42,11 @@ class Test(unittest.TestCase):
 		self.device.set_output_port(0)
 		# self.midi.choose_devices()
 
+	def test_print_note(self):
+		print Note(EF3, QN, 100)
+		print Rest(QN)
+		print Note(REST, QN)
+
 	def test_play_note(self):
 		n1 = Note(C3, 1., 120)
 		r = Rest(EN)
@@ -60,13 +65,40 @@ class Test(unittest.TestCase):
 		self.device.play_chord([C3, EF3, G3], 1., 100, 0)
 		self.device.play_chord([G3, BF3, D3], HN, 100, 0)
 
-	def test_note_list(self):
+	def test_print_note_list(self):
+		notes = [60, 62, 64, 67, 69, 72]
+		dur = [1., 0.25, 1., 0.5, 1., 1.]
+		dyn = [100, 120, 90, 80, 70, 100]
+		nl = NoteList(notes, dur, dyn)
+		print nl
+		# print nl.get()
+
+	def test_play_note_list(self):
 		notes = [60, 62, 64, 67, 69, 72]
 		dur = [1., 0.25, 1., 0.5, 1., 1.]
 		dyn = [100, 120, 90, 80, 70, 100]
 		nl = NoteList(notes, dur, dyn)
 		seq = nl.get()
 		self.device.play(seq)
+
+	def test_instrument(self):
+		self.device.instrument(PIANO, 0)
+		self.device.instrument(VIBRAPHONE, 1)
+		self.device.play(Note(A4, QN), 1)
+		self.device.play(Note(A4, QN), 0)
+
+	def test_pan(self):
+		self.device.panning(0, 1)
+		self.device.play(Note(A4, QN), 1)
+		self.device.panning(127, 1)
+		self.device.play(Note(A4, QN), 1)
+
+	def test_modulation(self):
+		self.device.instrument(ORGAN,2)
+		self.device.modulation(0, 2)
+		self.device.play(Note(A4, QN), 2)
+		self.device.modulation(127, 2)
+		self.device.play(Note(A4, QN), 2)
 
 	def test_fur_elise(self):
 		pitches1 = [E5, DS5, E5, DS5, E5, B4, D5, C5, A4, REST, C4, E4, A4, B4, REST, E4]
@@ -80,10 +112,13 @@ class Test(unittest.TestCase):
 		seq3 = NoteList(pitches3, durations3)
 		# seq.get() gives a list of Notes objects
 		self.device.play(seq1.get() + seq2.get() + seq1.get() + seq3.get())
-		sys.exit()
 
 	def test_scales(self):
-		pass
+		scale = PENTATONIC_SCALE
+		root = C4
+		notes = [root + note for note in scale]
+		for note in notes:
+			self.device.play(Note(note, EN))
 
 	def test_play_midi(self):
 		# Play midi messages
@@ -96,15 +131,15 @@ class Test(unittest.TestCase):
 
 		# self.midi_io.play(list_notes, 0)
 
-		try:
-			while True:
-				# self.midi_io.play([random.choice(list_notes)])
-				# self.midi_io.play([random.choice(list_notes)], 0)
-				# self.midi_io.play([random.choice(list_notes)], 1)
-				# self.midi_io.play([random.choice(list_notes)], 2)
-				pass
-		except KeyboardInterrupt:
-			pass
+		# try:
+		# 	while True:
+		# 		# self.midi_io.play([random.choice(list_notes)])
+		# 		# self.midi_io.play([random.choice(list_notes)], 0)
+		# 		# self.midi_io.play([random.choice(list_notes)], 1)
+		# 		# self.midi_io.play([random.choice(list_notes)], 2)
+		# 		pass
+		# except KeyboardInterrupt:
+		# 	pass
 
 		# Listen to midi input
 		# self.midi.register_callback(self.midi_in_callback)

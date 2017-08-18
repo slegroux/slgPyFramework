@@ -7,35 +7,48 @@ from threading import Thread
 from midi_consts import *
 
 note_state = {}
-
-def bpm(self, b):
-	self.beat = 60000 / b
+# TO DO global BPM variable
+BPM = 60
 
 
 class Note(object):
-	def __init__(self, p, dur, dyn=85):
-		if p == REST:
-			self.p = 0
-			self.dur = dur
-			self.dyn = 0
-		else:
-			self.p = p
-			self.dur = dur
-			self.dyn = dyn
+	"""A note event.
 
-	def print_note(self):
-		print (self.p, self.dur, self.dyn)
+	Parameters
+	----------
+	pitch : int
+		Note pitch, as a MIDI note number C4 format
+	duration : float
+		Note duration float or QN format
+	velocity : int
+		Note midi velocity.
+
+	"""
+
+	def __init__(self, pitch, duration, velocity=85):
+		if pitch == REST:
+			self.pitch = -1
+			self.duration = duration
+			self.velocity = 0
+		else:
+			self.pitch = pitch
+			self.duration = duration
+			self.velocity = velocity
+
+	def __repr__(self):
+		return 'Note(pitch={}, duration={}, velocity={})'.format(
+			self.pitch, self.duration, self.velocity)
 
 
 class Rest(Note):
 	# here rest is defined as a 0 velocity C3
 	def __init__(self, dur):
-		Note.__init__(self, 60, dur, 0, 0)
+		Note.__init__(self, -1, dur, 0)
 
 
 class NoteList(object):
 	def __init__(self, notes, dur, dyn=85):
-		self.notes=  notes
+		self.notes = notes
 		self.dur = dur
 
 		if type(dyn) is int:
@@ -43,8 +56,25 @@ class NoteList(object):
 		else:
 			self.dyn = dyn
 
+		self.note_list = [Note(n[0], n[1], n[2]) for n in zip(self.notes, self.dur, self.dyn)]
+
+	def __repr__(self):
+		s = ''
+		for note in self.note_list:
+			s += str(note) + '\n'
+		return s
+
 	def get(self):
-		return [Note(n[0], n[1], n[2]) for n in zip(self.notes, self.dur, self.dyn)]
+		return self.note_list
+
+
+class Phrase(object):
+	def __init__(self, note_list=[], instrument=PIANO, bpm=60, start=0):
+		self.start = start
+		self.data = note_list
+		self.bpm = bpm
+		self.beat_duration = 60. / bpm
+		self.instrument = instrument
 
 
 class Midi(object):
@@ -99,17 +129,28 @@ class Midi(object):
 	def run_callback(self):
 		self.midi_cb()
 
+	def instrument(self, instrument=PIANO, channel=0):
+		message = Message('program_change', channel=channel, program=instrument)
+		self.output.send(message)
+
+	def panning(self, panning=64, channel=0):
+		message = Message('control_change', channel=channel, control=10, value=panning)
+		self.output.send(message)
+
+	def modulation(self, value, channel=0):
+		message = Message('control_change', channel=channel, control=1, value=value)
+
 	def play_(self, notes, channel=0):
 		# exepect list of notes. input [note] if just 1 note
 		if not isinstance(notes, list):
 			notes = [notes]
 
 		for note in notes:
-			on = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
+			on = Message('note_on', note=note.pitch, velocity=note.velocity, channel=channel)
 			# pan_message = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
 			self.output.send(on)
-			time.sleep(note.dur)
-			off = Message('note_off', note=note.p, channel=channel)
+			time.sleep(note.duration)
+			off = Message('note_off', note=note.pitch, channel=channel)
 			self.output.send(off)
 
 	def play(self, notes, channel=0):
@@ -118,16 +159,16 @@ class Midi(object):
 		new_thread.start()
 		new_thread.join()
 
-	def play_chord_(self, pitches, dur, velocity, channel=0):
+	def play_chord_(self, pitches, duration, velocity, channel=0):
 		for note in pitches:
 			on = Message('note_on', note=note, velocity=velocity, channel=channel)
 			self.output.send(on)
-		time.sleep(dur)
+		time.sleep(duration)
 		for note in pitches:
 			off = Message('note_off', note=note, channel=channel)
 			self.output.send(off)
 
-	def play_chord(self, pitches, velocity, dur, channel=0):
-		new_thread = Thread(target=self.play_chord_, args=[pitches, velocity, dur, channel])
+	def play_chord(self, pitches, velocity, duration, channel=0):
+		new_thread = Thread(target=self.play_chord_, args=[pitches, velocity, duration, channel])
 		new_thread.start()
 		new_thread.join()
