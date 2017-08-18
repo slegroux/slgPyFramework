@@ -2,7 +2,7 @@
 import unittest
 import sys
 import midi, mido
-from midi import Midi, Note, Rest, NoteList
+from midi import Midi, Note, Rest, NoteList, Phrase, Instrument
 import time
 import random
 # check double import with midi.py
@@ -71,7 +71,11 @@ class Test(unittest.TestCase):
 		dyn = [100, 120, 90, 80, 70, 100]
 		nl = NoteList(notes, dur, dyn)
 		print nl
-		# print nl.get()
+		notes = [60, 62]
+		dur = [QN, QN]
+		nl = NoteList(notes, dur)
+		print nl
+
 
 	def test_play_note_list(self):
 		notes = [60, 62, 64, 67, 69, 72]
@@ -81,7 +85,25 @@ class Test(unittest.TestCase):
 		seq = nl.get()
 		self.device.play(seq)
 
+		# notes = [60, 62]
+		# dur = [QN, QN]
+		# nl = NoteList(notes, dur)
+		# self.device.play(nl.list)
+
+	def test_phrase(self):
+		p = Phrase()
+		print p
+		p.instrument = ORGAN
+		p.bpm = 120
+		p.channel = 1
+		print p
+		p.add_note(Note(A4, QN))
+		p.add_note(Note(B4, EN))
+		p.add_note_list()
+		print p
+
 	def test_instrument(self):
+		harp = Instrument(HARP, 0, 0)
 		self.device.instrument(PIANO, 0)
 		self.device.instrument(VIBRAPHONE, 1)
 		self.device.play(Note(A4, QN), 1)
