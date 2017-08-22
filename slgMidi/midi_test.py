@@ -54,11 +54,10 @@ class Test(unittest.TestCase):
 		n3 = Note(G3, EN, 127)
 		n4 = Note(BF3, QN, 127)
 
-		self.device.play([n1])
+		self.device.play(n1)
 		self.device.play([r])
 		self.device.play([n2])
-		self.device.play([n3])
-		self.device.play([n4])
+		self.device.play([n3, n4])
 
 	def test_play_chord(self):
 		self.device.play_chord([60, 63, 70], EN, 80, 0)
@@ -92,15 +91,34 @@ class Test(unittest.TestCase):
 
 	def test_phrase(self):
 		p = Phrase()
-		print p
 		p.instrument = ORGAN
 		p.bpm = 120
 		p.channel = 1
-		print p
 		p.add_note(Note(A4, QN))
 		p.add_note(Note(B4, EN))
-		p.add_note_list()
+		notes = [60, 62]
+		dur = [QN, QN]
+		nl = NoteList(notes, dur)
+		p.add_note_list(nl)
 		print p
+
+	def test_play_phrase(self):
+		p = Phrase(name='My phrase')
+		p.instrument = PIANO
+		p.bpm = 70
+		p.channel = 0
+		p.add_note(Note(A4, QN))
+		p.add_note(Note(B4, QN))
+		p.add_note(Note(C4, QN))
+		notes = [67, 62]
+		dur = [QN, QN]
+		nl = NoteList(notes, dur)
+		# print nl.list
+		p.add_note_list(nl)
+		# p.add_note_list(toto)
+		# print p.list
+		self.device.play(p)
+
 
 	def test_instrument(self):
 		harp = Instrument(HARP, 0, 0)

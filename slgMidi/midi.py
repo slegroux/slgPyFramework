@@ -47,16 +47,17 @@ class Rest(Note):
 
 
 class NoteList(object):
-	def __init__(self, notes, dur, dyn=85):
+	# forms list of Note object from python lists
+	def __init__(self, notes, duration, velocity=85):
 		self.notes = notes
-		self.dur = dur
+		self.duration = duration
 
-		if type(dyn) is int:
-			self.dyn = [dyn] * len(notes)
+		if type(velocity) is int:
+			self.velocity = [velocity] * len(notes)
 		else:
-			self.dyn = dyn
+			self.velocity = velocity
 
-		self.list = [Note(n[0], n[1], n[2]) for n in zip(self.notes, self.dur, self.dyn)]
+		self.list = [Note(n[0], n[1], n[2]) for n in zip(self.notes, self.duration, self.velocity)]
 
 	def __repr__(self):
 		s = ''
@@ -82,21 +83,32 @@ class Phrase(object):
 	def __init__(self, start=0, note_list=[], instrument=PIANO, bpm=60, channel=0, name='Phrase 1'):
 		self.name = name
 		self.start = start
-		self.data = note_list
+		self.list = note_list
 		self.bpm = bpm
 		self.beat_duration = 60. / bpm
 		self.instrument = instrument
 		self.channel = channel
 
 	def add_note(self, note):
-		self.data.append(note)
+		self.list.append(note)
+		# print "append note: ", self.list
 
 	def add_note_list(self, note_list):
-		self.data.append
+		for note in note_list.list:
+			self.list.append(note)
+
+	def add_lists(self, pitches, durations, velocities=85):
+		if type(pitches) == type(durations) == list:
+			nl = NoteList(pitches, durations, velocities)
+			self.add_note_list(nl)
+		else:
+			raise TypeError('params must be lists')
+
+
 
 	def __repr__(self):
 		s = self.name + '\nInstrument: ' + MIDI_INSTRUMENTS[self.instrument] + '\nBPM: ' + str(self.bpm) + '\nChannel: ' + str(self.channel) + '\nStart: ' + str(self.start) + '\n'
-		for note in self.data:
+		for note in self.list:
 			s += str(note) + '\n'
 		return s
 
@@ -166,13 +178,13 @@ class Midi(object):
 		message = Message('control_change', channel=channel, control=1, value=value)
 
 	def play_(self, sequence, channel=0):
-		# exepect list of notes. input [note] if just 1 note
+		# expect list of notes. input [note] if just 1 note
 		if isinstance(sequence, Note):
 			notes = [sequence]
 
 		elif isinstance(sequence, Phrase):
 			# self.start = start
-			notes = sequence.data
+			notes = sequence.list
 			self.bpm = sequence.bpm
 			self.set_instrument(sequence.instrument, sequence.channel)
 
