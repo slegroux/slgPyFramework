@@ -546,4 +546,5 @@ TURKISH_SCALE = [0, 1, 3, 5, 7, 10, 11]
 # provide additional MIDI pitch constants (for first octave, i.e., minus 1 octave)
 
 
-
+SEQUENTIAL = 0
+PARALLEL = 1

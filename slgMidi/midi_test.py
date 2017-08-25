@@ -2,6 +2,9 @@
 import unittest
 import sys
 import midi, mido
+from mido import Message
+import numpy as np
+import random
 from midi import Midi, Note, Rest, NoteList, Phrase, Instrument
 import time
 import random
@@ -42,7 +45,40 @@ class Test(unittest.TestCase):
 		self.device.set_output_port(0)
 		# self.midi.choose_devices()
 
-	def test_print_note(self):
+	def test_mido_msg(self):
+		timeList = np.array([32,64,128,256,512,1024])/1000.
+		file = mido.MidiFile()
+		track = mido.MidiTrack()
+		file.tracks.append(track)
+		track.append(mido.Message('program_change', program=12, time=0))
+		msgs = []
+		for i in range(100):
+			msgs.append(mido.Message('note_on', note=random.randrange(0,127), velocity=64, time=random.choice(timeList)))
+
+		# for msg in msgs:
+		# 	# time.sleep(0.5)
+		# 	self.device.output.send(msg)
+		# 	time.sleep(msg.time)
+
+			# time.sleep(random.choice(timeList))
+		note = Note(C3, 1., 120)
+		channel = 0
+		
+		on = Message('note_on', note=60, velocity=note.velocity, channel=channel, time=0.)
+		self.device.output.send(on)
+			# time.sleep(note.duration * 60. / self.bpm)
+		off = Message('note_off', note=note.pitch, channel=channel, time=1.0)
+		self.device.output.send(off)
+
+		on = Message('note_on', note=64, velocity=note.velocity, channel=channel, time=1.0)
+		self.device.output.send(on)
+			# time.sleep(note.duration * 60. / self.bpm)
+		off = Message('note_off', note=note.pitch, channel=channel, time=1.5)
+		self.device.output.send(off)
+
+		raw_input("\nPress enter to exit")
+
+	def test_note(self):
 		print Note(EF3, QN, 100)
 		print Rest(QN)
 		print Note(REST, QN)
@@ -53,18 +89,20 @@ class Test(unittest.TestCase):
 		n2 = Note(EF3, QN, 100)
 		n3 = Note(G3, EN, 127)
 		n4 = Note(BF3, QN, 127)
-
+		self.device.sync = SEQUENTIAL
 		self.device.play(n1)
 		self.device.play([r])
 		self.device.play([n2])
 		self.device.play([n3, n4])
+		raw_input("\nPress enter to exit")
 
 	def test_play_chord(self):
-		self.device.play_chord([60, 63, 70], EN, 80, 0)
-		self.device.play_chord([C3, EF3, G3], 1., 100, 0)
-		self.device.play_chord([G3, BF3, D3], HN, 100, 0)
+		# TODO check chords
+		self.device.play_note([60, 63, 70], EN, 80, 0)
+		# self.device.play_chord([C3, EF3, G3], 1., 100, 0)
+		# self.device.play_chord([G3, BF3, D3], HN, 100, 0)
 
-	def test_print_note_list(self):
+	def test_note_list(self):
 		notes = [60, 62, 64, 67, 69, 72]
 		dur = [1., 0.25, 1., 0.5, 1., 1.]
 		dyn = [100, 120, 90, 80, 70, 100]
@@ -75,19 +113,15 @@ class Test(unittest.TestCase):
 		nl = NoteList(notes, dur)
 		print nl
 
-
 	def test_play_note_list(self):
 		notes = [60, 62, 64, 67, 69, 72]
 		dur = [1., 0.25, 1., 0.5, 1., 1.]
 		dyn = [100, 120, 90, 80, 70, 100]
 		nl = NoteList(notes, dur, dyn)
-		seq = nl.get()
-		self.device.play(seq)
-
-		# notes = [60, 62]
-		# dur = [QN, QN]
-		# nl = NoteList(notes, dur)
-		# self.device.play(nl.list)
+		print nl
+		self.device.sync = SEQUENTIAL
+		self.device.play(nl)
+		raw_input("\nPress enter to exit")
 
 	def test_phrase(self):
 		p = Phrase()
@@ -96,11 +130,22 @@ class Test(unittest.TestCase):
 		p.channel = 1
 		p.add_note(Note(A4, QN))
 		p.add_note(Note(B4, EN))
+		print p
 		notes = [60, 62]
 		dur = [QN, QN]
+		vel = [30, 120]
 		nl = NoteList(notes, dur)
 		p.add_note_list(nl)
 		print p
+		p.add_lists(notes, dur, vel)
+		print p
+		notes = [(A4, QN), (C3, EN)]
+		notes_2 = [(A4, QN, 10), (C3, EN, 30)]
+		p.add_tuples(notes)
+		print p
+		p.add_tuples(notes_2)
+		print p
+		print p.list
 
 	def test_play_phrase(self):
 		p = Phrase(name='My phrase')
@@ -113,12 +158,13 @@ class Test(unittest.TestCase):
 		notes = [67, 62]
 		dur = [QN, QN]
 		nl = NoteList(notes, dur)
-		# print nl.list
 		p.add_note_list(nl)
-		# p.add_note_list(toto)
-		# print p.list
+		notes_2 = [(A4, QN, 90), (C3, EN, 120)]
+		p.add_tuples(notes_2)
+		print p
+		print p.list
 		self.device.play(p)
-
+		raw_input("\nPress enter to exit")
 
 	def test_instrument(self):
 		harp = Instrument(HARP, 0, 0)
@@ -152,6 +198,7 @@ class Test(unittest.TestCase):
 		seq3 = NoteList(pitches3, durations3)
 		# seq.get() gives a list of Notes objects
 		self.device.play(seq1.get() + seq2.get() + seq1.get() + seq3.get())
+		raw_input("\nPress enter to exit")
 
 	def test_scales(self):
 		scale = PENTATONIC_SCALE

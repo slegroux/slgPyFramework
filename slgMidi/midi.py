@@ -3,6 +3,7 @@ from IPython import embed
 import mido
 from mido import Message
 import time
+import threading
 from threading import Thread
 from midi_consts import *
 
@@ -38,6 +39,11 @@ class Note(object):
 	def __repr__(self):
 		return 'Note(pitch={}, duration={}, velocity={})'.format(
 			self.pitch, self.duration, self.velocity)
+
+
+class Chord(object):
+	def __init__(self):
+		self.mode = 'M'
 
 
 class Rest(Note):
@@ -80,29 +86,47 @@ class Instrument(object):
 
 
 class Phrase(object):
-	def __init__(self, start=0, note_list=[], instrument=PIANO, bpm=60, channel=0, name='Phrase 1'):
+	def __init__(self, start=0, note_list=[], instrument=PIANO, bpm=60, channel=0, name='Phrase 1', loop=1):
 		self.name = name
 		self.start = start
-		self.list = note_list
 		self.bpm = bpm
 		self.beat_duration = 60. / bpm
 		self.instrument = instrument
 		self.channel = channel
+		self.loop = 1
+		self.list = note_list * self.loop
 
-	def add_note(self, note):
-		self.list.append(note)
+	def add_note(self, note, loop=1):
+		for i in range(loop):
+			self.list.append(note)
 		# print "append note: ", self.list
 
-	def add_note_list(self, note_list):
-		for note in note_list.list:
+	def add_note_list(self, note_list, loop=1):
+		for note in note_list.list * loop:
 			self.list.append(note)
 
-	def add_lists(self, pitches, durations, velocities=85):
+	def add_lists(self, pitches, durations, velocities=85, loop=1):
 		if type(pitches) == type(durations) == list:
 			nl = NoteList(pitches, durations, velocities)
-			self.add_note_list(nl)
+
+			for i in range(loop):
+				self.add_note_list(nl)
 		else:
 			raise TypeError('params must be lists')
+
+	def add_tuples(self, note_tuples, loop=1):
+		for i in range(loop):
+			if len(note_tuples[0]) == 2:
+				for pair in note_tuples:
+					n = Note(pair[0], pair[1])
+					self.add_note(n)
+			elif len(note_tuples[0]) == 3:
+				for triple in note_tuples:
+					n = Note(triple[0], triple[1], triple[2])
+					self.add_note(n)
+
+	def set_loop(self, loop=1):
+		pass
 
 
 
@@ -120,6 +144,13 @@ class Midi(object):
 		self.output = mido.open_output()
 		self.midi_cb = None
 		self.bpm = 60.
+		# sequential = 0, parallel = 1
+		self.sync = SEQUENTIAL
+		self.threads = []
+
+	def __del__(self):
+		print("Exiting - with %d threads.." % len(self.threads))
+
 
 	def show_devices(self):
 		print "MIDI IN: ", mido.get_input_names()
@@ -177,8 +208,41 @@ class Midi(object):
 	def set_modulation(self, value, channel=0):
 		message = Message('control_change', channel=channel, control=1, value=value)
 
-	def play_(self, sequence, channel=0):
+		# value is in range [-8192,+8191]
+	def pitchbend(self, ch, p):
+		self.send(mido.Message('pitchwheel', channel=ch, pitch=p))
+
+	def aftertouch_channel(self, ch, v):
+		self.send(mido.Message('aftertouch', channel=ch, value=v))
+
+	def aftertouch_note(self, ch, n, v):
+		self.send(mido.Message('polytouch', channel=ch, note=n, value=v))
+
+	def play_note(self, note_or_notes, dur, vel, ch=0):
+		"""
+		abstraction for playing a note
+		"""
+		def _play(note_or_notes, vel, dur, ch=0):
+			with mido.open_output(None, autoreset=True) as port:
+				if type(note_or_notes) != type([]):
+					note_or_notes = [note_or_notes]
+				for note in note_or_notes:
+					on = Message('note_on', channel=ch, note=note, velocity=vel)
+					port.send(on)
+				time.sleep(dur * 60. / self.bpm)
+				for note in note_or_notes:
+					off = Message('note_off', channel=ch, note=note, velocity=vel)
+					port.send(off)
+				# time.sleep(dur)
+		t = Thread(target=_play, args=(note_or_notes, vel, dur, ch))
+		self.threads.append(t)
+		t.daemon = True
+		t.start()
+		time.sleep(dur * 60. / self.bpm)
+
+	def play(self, sequence, channel=0):
 		# expect list of notes. input [note] if just 1 note
+		print "Play_ start"
 		if isinstance(sequence, Note):
 			notes = [sequence]
 
@@ -187,23 +251,33 @@ class Midi(object):
 			notes = sequence.list
 			self.bpm = sequence.bpm
 			self.set_instrument(sequence.instrument, sequence.channel)
+			channel = sequence.channel
+
+		elif isinstance(sequence, NoteList):
+			notes = sequence.get()
 
 		else:
 			notes = sequence
 
 		for note in notes:
-			on = Message('note_on', note=note.pitch, velocity=note.velocity, channel=channel)
-			# pan_message = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
-			self.output.send(on)
-			time.sleep(note.duration * 60. / self.bpm)
-			off = Message('note_off', note=note.pitch, channel=channel)
-			self.output.send(off)
+			self.play_note(note.pitch, note.duration, note.velocity, channel)
+			print("Now I have %d threads.." % len(self.threads))
+			# on = Message('note_on', note=note.pitch, velocity=note.velocity, channel=channel)
+			# # pan_message = Message('note_on', note=note.p, velocity=note.dyn, channel=channel)
+			# self.output.send(on)
+			# time.sleep(note.duration * 60. / self.bpm)
+			# off = Message('note_off', note=note.pitch, channel=channel)
+			# self.output.send(off)
 
-	def play(self, notes, channel=0):
+	# def play(self, notes, channel=0):
+	# 	self.play_(notes, channel)
 		# TODO: give arguments to threaded function
-		new_thread = Thread(target=self.play_, args=[notes, channel])
-		new_thread.start()
-		new_thread.join()
+		# new_thread = Thread(target=self.play_, args=[notes, channel])
+		# new_thread.setDaemon(True)
+		# new_thread.start()
+		# if self.sync == SEQUENTIAL:
+		# 	new_thread.join()
+		# new_thread._stop()
 
 	def play_chord_(self, pitches, duration, velocity, channel=0):
 		for note in pitches:
@@ -217,4 +291,8 @@ class Midi(object):
 	def play_chord(self, pitches, velocity, duration, channel=0):
 		new_thread = Thread(target=self.play_chord_, args=[pitches, velocity, duration, channel])
 		new_thread.start()
-		new_thread.join()
+		# new_thread.join()
+
+
+class Sequencer(threading.Thread):
+	pass
