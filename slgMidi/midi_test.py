@@ -84,12 +84,20 @@ class Test(unittest.TestCase):
 		print Note(REST, QN)
 
 	def test_play_note(self):
+		self.device.play_note(C4, QN, 100, 0)
+		self.device.play_note([C4,EF4,G4], QN, 100, 0)
+		self.device.play_note(C4, QN, 100, 0)
+		self.device.play_note([C4,F4,AF4], QN, 100, 0)
+		self.device.play_note(C4, WN, 100, 0)
+		raw_input("\nPress enter to exit")
+
+	def test_play(self):
 		n1 = Note(C3, 1., 120)
 		r = Rest(EN)
 		n2 = Note(EF3, QN, 100)
 		n3 = Note(G3, EN, 127)
 		n4 = Note(BF3, QN, 127)
-		self.device.sync = SEQUENTIAL
+		# self.device.sync = SEQUENTIAL
 		self.device.play(n1)
 		self.device.play([r])
 		self.device.play([n2])
@@ -101,6 +109,7 @@ class Test(unittest.TestCase):
 		self.device.play_note([60, 63, 70], EN, 80, 0)
 		# self.device.play_chord([C3, EF3, G3], 1., 100, 0)
 		# self.device.play_chord([G3, BF3, D3], HN, 100, 0)
+		raw_input("\nPress enter to exit")
 
 	def test_note_list(self):
 		notes = [60, 62, 64, 67, 69, 72]
@@ -215,6 +224,7 @@ class Test(unittest.TestCase):
 
 		list_notes = [midi.Note(n[0], n[1], n[2]) for n in zip(notes, dur, vel)]
 		self.device.play([list_notes[0], list_notes[1]], 1)
+		raw_input("\nPress enter to exit")
 
 		# self.midi_io.play(list_notes, 0)
 
